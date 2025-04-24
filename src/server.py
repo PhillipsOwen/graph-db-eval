@@ -30,7 +30,7 @@ logger = LoggingUtil.init_logging("graph-db-eval-fastapi", level=log_level, line
 db_path: str = os.getenv('KUZU_DB_PATH', os.path.dirname(__file__))
 
 # create a DB and a connection to it
-db = kuzu.Database(db_path)
+db = kuzu.Database(str(db_path), read_only=True)
 db_conn = kuzu.AsyncConnection(db)
 
 
