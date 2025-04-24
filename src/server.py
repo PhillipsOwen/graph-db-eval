@@ -1,11 +1,3 @@
-# SPDX-FileCopyrightText: 2022 Renaissance Computing Institute. All rights reserved.
-# SPDX-FileCopyrightText: 2023 Renaissance Computing Institute. All rights reserved.
-# SPDX-FileCopyrightText: 2024 Renaissance Computing Institute. All rights reserved.
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-# SPDX-License-Identifier: LicenseRef-RENCI
-# SPDX-License-Identifier: MIT
-
 """
     APSVIZ settings server.
 """
@@ -48,14 +40,13 @@ async def run_kuzu_cypher_query(query: str) -> PlainTextResponse:
     status_code = 200
 
     # init the intermediate and return values
-    results: list = []
     ret_val: list = []
 
     # start collecting data
     try:
         ret_val: str = await get_kuzu_data(db_conn, query)
 
-        logger.debug(f"Result: {ret_val}")
+        logger.debug("Result: %s", ret_val)
 
     except Exception:
         # return a failure message
@@ -71,7 +62,14 @@ async def run_kuzu_cypher_query(query: str) -> PlainTextResponse:
 
 
 async def get_kuzu_data(conn, query: str) -> str:
-    logger.debug(f"\nQuery :\n {query}")
+    """
+    gets the Kuzu data results using the cypher query passed.
+
+    :param conn:
+    :param query:
+    :return:
+    """
+    logger.debug("\nQuery :\n %s", query)
 
     t = Timer(name="results", text="Results gathered in {:.4f}s")
 
