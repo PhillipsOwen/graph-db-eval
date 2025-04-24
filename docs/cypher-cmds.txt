@@ -14,6 +14,7 @@ match (a)-[e]->(b) return a,e,b limit 25;
 match (a)-[e]->(b) where a.id="NCBIGene:6531" return a,e,b limit 50;
 MATCH ()-[r]->() RETURN r, properties(r)
 MATCH p = (a)-[e]-(c) WHERE a.id = 'UNII:7PK6VC94OU' RETURN relationships(p);
+match (a:`biolink:Disease` {id:"MONDO:0005105"})-[x]-(b:`biolink:SmallMolecule`) return type(x),x.primary_knowledge_source,count(b)
 
 /////////////////
 // no longer used
