@@ -26,8 +26,11 @@ log_level, log_path = LoggingUtil.prep_for_logging()
 # create a logger
 logger = LoggingUtil.init_logging("graph-db-eval-fastapi", level=log_level, line_format='medium', log_file_path=log_path)
 
+# get the path to the DB
+db_path: str = os.getenv('KUZU_DB_PATH', os.path.dirname(__file__))
+
 # create a DB and a connection to it
-db = kuzu.Database("C:/Users/powen/PycharmProjects/translator-graph/DBs/kuzu-ctd-db")
+db = kuzu.Database(db_path)
 db_conn = kuzu.AsyncConnection(db)
 
 
