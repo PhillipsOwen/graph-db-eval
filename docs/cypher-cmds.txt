@@ -1,0 +1,39 @@
+// import the merged json data file
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/merge.json");
+
+// queries
+STORAGE MODE IN_MEMORY_ANALYTICAL;
+DROP graph;
+
+SHOW STORAGE INFO;
+STORAGE MODE IN_MEMORY_TRANSACTIONAL;
+STORAGE MODE IN_MEMORY_ANALYTICAL;
+
+match (a) return a limit 5;
+match (a)-[e]->(b) return a,e,b limit 25;
+match (a)-[e]->(b) where a.id="NCBIGene:6531" return a,e,b limit 50;
+MATCH ()-[r]->() RETURN r, properties(r)
+MATCH p = (a)-[e]-(c) WHERE a.id = 'UNII:7PK6VC94OU' RETURN relationships(p);
+
+/////////////////
+// no longer used
+/////////////////
+
+// import nodes
+STORAGE MODE IN_MEMORY_TRANSACTIONAL;
+//EDGE IMPORT MODE INACTIVE;
+CALL json_util.load_from_path("/var/lib/memgraph/databases/memgraph/nodes.json")
+YIELD objects
+UNWIND objects AS o
+CREATE (:CTDNode {equivalent_identifiers:o.equivalent_identifiers, category:o.category, id:o.id, description:o.description, name:o.name, NCBITaxon:o.NCBITaxon, information_content:o.information_content});
+
+// import edges
+STORAGE MODE IN_MEMORY_TRANSACTIONAL;
+//EDGE IMPORT MODE ACTIVE;
+CALL json_util.load_from_path("/var/lib/memgraph/databases/memgraph/edges.json")
+YIELD objects
+UNWIND objects AS o
+CREATE (:CTDEdge {id:o.id, start:o.start, end:o.end, label:o.label, type:o.type });
+//CREATE (n1:CTDNode {id: o.subject})
+//CREATE (n2:CTDNode {id: o.object})
+//CREATE (n1)-[:CTDEdge {predicate: o.predicate, subject: o.subject, object: o.object, label: o.predicate}]->(n2);
