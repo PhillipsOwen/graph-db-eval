@@ -3,6 +3,8 @@ FROM python:3.13.2-slim
 # update the image base
 RUN apt-get update && apt-get -y upgrade
 
+RUN apt-get install -y procps
+
 # update pip
 RUN pip install --upgrade pip
 
