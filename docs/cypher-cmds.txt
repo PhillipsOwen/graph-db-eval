@@ -1,20 +1,33 @@
 // import the merged json data file
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/merge.json");
 
-// queries
 STORAGE MODE IN_MEMORY_ANALYTICAL;
 DROP graph;
 
-SHOW STORAGE INFO;
-STORAGE MODE IN_MEMORY_TRANSACTIONAL;
-STORAGE MODE IN_MEMORY_ANALYTICAL;
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000000-1.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-1.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-2.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-1-sav.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000-1.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000-2.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-1.json");
 
+// queries
+explain match (a:`biolink:Disease` {id:"MONDO:0005105"})-[x]-(b:`biolink:SmallMolecule`) return type(x),x.primary_knowledge_source,count(b);
+match (a) where a.id='CHEBI:25806' return *;
+match (a)--(b) return count(*);
+match (a) return * limit 10;
+match (a) return count(*);
+match ()-[e]-() return count(e);
+match (a)-[e]->(b) return * limit 10;
 match (a) return a limit 5;
 match (a)-[e]->(b) return a,e,b limit 25;
 match (a)-[e]->(b) where a.id="NCBIGene:6531" return a,e,b limit 50;
 MATCH ()-[r]->() RETURN r, properties(r)
 MATCH p = (a)-[e]-(c) WHERE a.id = 'UNII:7PK6VC94OU' RETURN relationships(p);
-match (a:`biolink:Disease` {id:"MONDO:0005105"})-[x]-(b:`biolink:SmallMolecule`) return type(x),x.primary_knowledge_source,count(b)
+
+SHOW STORAGE INFO;
+STORAGE MODE IN_MEMORY_TRANSACTIONAL;
+STORAGE MODE IN_MEMORY_ANALYTICAL;
 
 /////////////////
 // no longer used
