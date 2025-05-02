@@ -1,18 +1,52 @@
-// import the merged json data file
 
+//////////////////
+// DB property manipulation commands
+//////////////////
+SHOW STORAGE INFO;
+STORAGE MODE IN_MEMORY_TRANSACTIONAL;
+STORAGE MODE IN_MEMORY_ANALYTICAL;
+
+/////////////////
+// use these commands to start loading or clearing the DB
+/////////////////
 STORAGE MODE IN_MEMORY_ANALYTICAL;
 DROP graph;
 
+////////////////
+// import the merged json data file
+////////////////
 CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000000-1.json");
 CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-1.json");
 CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-2.json");
 CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-1-sav.json");
 CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000-1.json");
 CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000-2.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-1.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-merge-1.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-merge-2.json");
+CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-merge-all-lines-file0.json");
 
-// queries
-explain match (a:`biolink:Disease` {id:"MONDO:0005105"})-[x]-(b:`biolink:SmallMolecule`) return type(x),x.primary_knowledge_source,count(b);
+/////////////////
+// load data using json_util.load_from_path() for individual load edge or node data files
+/////////////////
+
+// nodes
+CALL json_util.load_from_path("/var/lib/memgraph/databases/memgraph/ctd-nodes.json")
+YIELD objects
+UNWIND objects AS o
+CREATE (:CTDNode {equivalent_identifiers:o.equivalent_identifiers, category:o.category, id:o.id, description:o.description, name:o.name, NCBITaxon:o.NCBITaxon, information_content:o.information_content});
+
+// edges
+CALL json_util.load_from_path("/var/lib/memgraph/databases/memgraph/ctd-edges.json")
+YIELD objects
+UNWIND objects AS o
+MATCH (a {id: o.start}), (b {id: o.end})
+CREATE (a)-[:CTDEdge {start:o.start, label:o.label, end:o.end, type:o.type, id:o.id, properties:o.properties}]->(b);
+
+////////////////
+// general purpose queries
+////////////////
+explain
+match (a:`biolink:Disease` {id:"MONDO:0005105"})-[x]-(b:`biolink:SmallMolecule`) return type(x),x.primary_knowledge_source,count(b);
 match (a) where a.id='CHEBI:25806' return *;
 match (a)--(b) return count(*);
 match (a) return * limit 10;
@@ -24,30 +58,3 @@ match (a)-[e]->(b) return a,e,b limit 25;
 match (a)-[e]->(b) where a.id="NCBIGene:6531" return a,e,b limit 50;
 MATCH ()-[r]->() RETURN r, properties(r)
 MATCH p = (a)-[e]-(c) WHERE a.id = 'UNII:7PK6VC94OU' RETURN relationships(p);
-
-SHOW STORAGE INFO;
-STORAGE MODE IN_MEMORY_TRANSACTIONAL;
-STORAGE MODE IN_MEMORY_ANALYTICAL;
-
-/////////////////
-// no longer used
-/////////////////
-
-// import nodes
-STORAGE MODE IN_MEMORY_TRANSACTIONAL;
-//EDGE IMPORT MODE INACTIVE;
-CALL json_util.load_from_path("/var/lib/memgraph/databases/memgraph/nodes.json")
-YIELD objects
-UNWIND objects AS o
-CREATE (:CTDNode {equivalent_identifiers:o.equivalent_identifiers, category:o.category, id:o.id, description:o.description, name:o.name, NCBITaxon:o.NCBITaxon, information_content:o.information_content});
-
-// import edges
-STORAGE MODE IN_MEMORY_TRANSACTIONAL;
-//EDGE IMPORT MODE ACTIVE;
-CALL json_util.load_from_path("/var/lib/memgraph/databases/memgraph/edges.json")
-YIELD objects
-UNWIND objects AS o
-CREATE (:CTDEdge {id:o.id, start:o.start, end:o.end, label:o.label, type:o.type });
-//CREATE (n1:CTDNode {id: o.subject})
-//CREATE (n2:CTDNode {id: o.object})
-//CREATE (n1)-[:CTDEdge {predicate: o.predicate, subject: o.subject, object: o.object, label: o.predicate}]->(n2);
