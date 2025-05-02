@@ -18,7 +18,7 @@ from src.common.logger import LoggingUtil
 
 
 # set the app version
-app_version = os.getenv('APP_VERSION', 'Version number not set')
+app_version = os.getenv('APP_VERSION', 'Experimental')
 
 # get the log level and directory from the environment.
 log_level, log_path = LoggingUtil.prep_for_logging()
