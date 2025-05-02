@@ -5,6 +5,9 @@
 """
 import os
 import kuzu
+import mgclient
+import pandas as pd
+
 from codetiming import Timer
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +15,7 @@ from fastapi.responses import PlainTextResponse
 from kuzu import Database
 from contextlib import asynccontextmanager
 from src.common.logger import LoggingUtil
+
 
 # set the app version
 app_version = os.getenv('APP_VERSION', 'Version number not set')
@@ -63,12 +67,12 @@ APP.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, 
 @APP.get('/run_kuzu_cypher_query', status_code=200, response_model=None)
 async def run_kuzu_cypher_query(query: str) -> PlainTextResponse:
     """
-    Executes a CYPHER command and returns the result.
+    Executes a CYPHER command on a Kuzu DB and returns the result.
     """
     # init the returned HTML status code
     status_code = 200
 
-    # init the intermediate and return values
+    # init the returned data
     ret_val: str = ""
 
     # start collecting data
@@ -121,3 +125,70 @@ async def get_kuzu_data(conn, query: str) -> str:
 
     # return the result
     return "Elapsed time: " + str(round(t.last, 4)) + "s" + result.to_string()
+
+
+@APP.get('/run_mg_cypher_query', status_code=200, response_model=None)
+async def run_mg_cypher_query(query: str) -> PlainTextResponse:
+    """
+    Executes a CYPHER command on a MemGraph DB and returns the result.
+    """
+    # init the returned HTML status code
+    status_code = 200
+
+    # init the intermediate and return values
+    ret_val: str = ""
+
+    # start collecting data
+    try:
+        # Connect to Memgraph
+        connection = mgclient.connect(host='127.0.0.1', port=7687)
+
+        # get the data
+        ret_val: str = get_mg_data(connection, query)
+
+    except Exception as e:
+        # return a failure message
+        ret_val: str = f'Exception: Request failure. {str(e)}'
+
+        logger.exception('Exception: Request failure.', e)
+
+        # set the status to a server error
+        status_code = 500
+
+    # return to the caller
+    return PlainTextResponse(content=ret_val, status_code=status_code, media_type="text/plain")
+
+
+def get_mg_data(conn, query: str) -> str:
+    """
+    gets the Memgraph data results using the CYPHER query passed.
+
+    :param conn:
+    :param query:
+    :return:
+    """
+    logger.info("\nMemGraph query: %s", query)
+
+    # create a timer for query duration
+    t = Timer(name="results", text="Results gathered in {:.4f}s")
+
+    # use the timer
+    with t:
+        # get a cursor to the DB
+        cursor = conn.cursor()
+
+        # execute the query
+        cursor.execute(query)
+
+        # get all the data
+        ret_val = cursor.fetchall()
+
+    # clean up
+    cursor.close()
+    conn.close()
+
+    # get the query result into a dataframe
+    result = pd.DataFrame.from_records(ret_val)
+
+    # return the result
+    return "Elapsed time: " + str(round(t.last, 4)) + "s\n" + result.to_string()
