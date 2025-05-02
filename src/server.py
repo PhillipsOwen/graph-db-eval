@@ -5,7 +5,7 @@
 """
 import os
 import kuzu
-import mgclient
+from neo4j import GraphDatabase
 import pandas as pd
 
 from codetiming import Timer
@@ -140,11 +140,17 @@ async def run_mg_cypher_query(query: str) -> PlainTextResponse:
 
     # start collecting data
     try:
-        # Connect to Memgraph
-        connection = mgclient.connect(host='127.0.0.1', port=7687)
+        # get the host name:port and auth (none)
+        host_name = f"bolt://{os.getenv('MEMGRAPH_DB_HOST', 'localhost')}:{os.getenv('MEMGRAPH_DB_PORT', '7687')}"
+        auth = ("", "")
 
-        # get the data
-        ret_val: str = get_mg_data(connection, query)
+        # Connect to Memgraph
+        with GraphDatabase.driver(host_name, auth=auth) as client:
+            # check the connection
+            client.verify_connectivity()
+
+            # get the data
+            ret_val: str = await get_mg_data(client, query)
 
     except Exception as e:
         # return a failure message
@@ -159,11 +165,11 @@ async def run_mg_cypher_query(query: str) -> PlainTextResponse:
     return PlainTextResponse(content=ret_val, status_code=status_code, media_type="text/plain")
 
 
-def get_mg_data(conn, query: str) -> str:
+async def get_mg_data(client, query: str) -> str:
     """
     gets the Memgraph data results using the CYPHER query passed.
 
-    :param conn:
+    :param client:
     :param query:
     :return:
     """
@@ -174,21 +180,10 @@ def get_mg_data(conn, query: str) -> str:
 
     # use the timer
     with t:
-        # get a cursor to the DB
-        cursor = conn.cursor()
-
-        # execute the query
-        cursor.execute(query)
-
-        # get all the data
-        ret_val = cursor.fetchall()
-
-    # clean up
-    cursor.close()
-    conn.close()
+        records, summary, keys = client.execute_query(query)
 
     # get the query result into a dataframe
-    result = pd.DataFrame.from_records(ret_val)
+    result = pd.DataFrame.from_records(records, columns=keys)
 
     # return the result
     return "Elapsed time: " + str(round(t.last, 4)) + "s\n" + result.to_string()
