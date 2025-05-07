@@ -20,14 +20,14 @@ DROP graph;
 
 // nodes
 NODE IMPORT MODE ACTIVE;
-CALL json_util.load_from_path("/var/lib/memgraph/databases/memgraph/ctd-nodes.json")
+CALL json_util.load_from_path("/var/log/memgraph/ctd-nodes.json")
 YIELD objects
 UNWIND objects AS o
 CREATE (:CTDNode {equivalent_identifiers:o.equivalent_identifiers, category:o.category, id:o.id, description:o.description, name:o.name, NCBITaxon:o.NCBITaxon, information_content:o.information_content});
 
 // edges
 EDGE IMPORT MODE ACTIVE;
-CALL json_util.load_from_path("/var/lib/memgraph/databases/memgraph/ctd-edges.json")
+CALL json_util.load_from_path("/var/log/memgraph/ctd-edges.json")
 YIELD objects
 UNWIND objects AS o
 MATCH (a {id: o.start}), (b {id: o.end})
@@ -36,17 +36,18 @@ CREATE (a)-[:CTDEdge {start:o.start, label:o.label, end:o.end, type:o.type, id:o
 ////////////////
 // import a merged edge/node json data file
 ////////////////
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000000-1.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-1.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-2.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-500000-1-sav.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000-1.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/robokop-1000-2.json");
+CALL import_util.json("/var/log/memgraph/robokop-1000000-1.json");
+CALL import_util.json("/var/log/memgraph/robokop-500000-1.json");
+CALL import_util.json("/var/log/memgraph/robokop-500000-2.json");
+CALL import_util.json("/var/log/memgraph/robokop-500000-1-sav.json");
+CALL import_util.json("/var/log/memgraph/memgraph/robokop-1000-1.json");
+CALL import_util.json("/var/log/memgraph/robokop-1000-2.json");
+CALL import_util.json("/var/log/memgraph/robokop-all-lines-file0.json");
 
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-merge-1.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-merge-2.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-merge-all-lines-file0.json");
-CALL import_util.json("/var/lib/memgraph/databases/memgraph/ctd-10-lines-file0.json");
+CALL import_util.json("/var/log/memgraph/ctd-merge-1.json");
+CALL import_util.json("/var/log/memgraph/ctd-merge-2.json");
+CALL import_util.json("/var/log/memgraph/ctd-merge-all-lines-file0.json");
+CALL import_util.json("/var/log/memgraph/ctd-10-lines-file0.json");
 
 ////////////////
 // general purpose queries
