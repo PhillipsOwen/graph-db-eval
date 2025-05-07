@@ -38,10 +38,11 @@ async def lifespan(APP: FastAPI):
     :param APP:
     :return:
     """
-    logger.info("Now loading Kuzu DB...")
 
     # get the path to the DB
-    db_path: str = os.getenv('KUZU_DB_PATH', os.path.dirname(__file__))
+    db_path: str = os.getenv('KUZU_DB_PATH', 'D:/dvols/graph-eval/ctd_data/kuzu-db') # os.path.dirname(__file__)
+
+    logger.info(f'Now loading Kuzu DB: {db_path}')
 
     # grab the db variable created above
     global db
