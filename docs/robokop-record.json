@@ -1,0 +1,52 @@
+﻿[
+  {
+    "a": {
+      "identity": 6282051,
+      "labels": [
+        "biolink:NamedThing",
+        "biolink:OrganismTaxon"
+      ],
+      "properties": {
+        "name": "Pseudomonas sp. ARP3",
+        "id": "NCBITaxon:1661386",
+        "information_content": 100.0,
+        "equivalent_identifiers": [
+          "NCBITaxon:1661386"
+        ]
+      },
+      "elementId": "4:ca2b4b1c-3293-4f50-a757-48aa4416b0a2:6282051"
+    },
+    "b": {
+      "identity": 7424996,
+      "labels": [
+        "biolink:NamedThing",
+        "biolink:OrganismTaxon"
+      ],
+      "properties": {
+        "name": "Pseudomonas",
+        "id": "NCBITaxon:286",
+        "information_content": 32.1,
+        "equivalent_identifiers": [
+          "NCBITaxon:286",
+          "MESH:D011549",
+          "UMLS:C0033808"
+        ]
+      },
+      "elementId": "4:ca2b4b1c-3293-4f50-a757-48aa4416b0a2:7424996"
+    },
+    "e": {
+      "identity": 0,
+      "start": 6282051,
+      "end": 7424996,
+      "type": "biolink:subclass_of",
+      "properties": {
+        "agent_type": "manual_agent",
+        "knowledge_level": "knowledge_assertion",
+        "primary_knowledge_source": "infores:ubergraph"
+      },
+      "elementId": "5:ca2b4b1c-3293-4f50-a757-48aa4416b0a2:0",
+      "startNodeElementId": "4:ca2b4b1c-3293-4f50-a757-48aa4416b0a2:6282051",
+      "endNodeElementId": "4:ca2b4b1c-3293-4f50-a757-48aa4416b0a2:7424996"
+    }
+  }
+]
