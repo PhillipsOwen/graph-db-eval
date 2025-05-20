@@ -1,0 +1,241 @@
+
+//////////////////
+// DB property view/manipulation configuration commands
+//////////////////
+SHOW STORAGE INFO;
+SHOW CONFIG;
+STORAGE MODE IN_MEMORY_TRANSACTIONAL;
+STORAGE MODE IN_MEMORY_ANALYTICAL;
+STORAGE MODE ON_DISK_TRANSACTIONAL;
+
+SHOW TRANSACTIONS;
+TERMINATE TRANSACTIONS "9223372036854887912","9223372036854887915","9223372036854887913","9223372036854887911","9223372036854887914","9223372036854887903","9223372036854887902"
+,"9223372036854887901","9223372036854887900","9223372036854887899","9223372036854890175";
+
+/////////////////
+// use these commands to start loading/clearing the DB load process
+/////////////////
+STORAGE MODE IN_MEMORY_ANALYTICAL;
+DROP graph;
+
+
+////////////////
+// import memgraph merged edge/node data files using import_util.json()
+////////////////
+CALL import_util.json("/var/log/memgraph/ctd-mg.json");
+CALL import_util.json("/var/log/memgraph/rk-mg.json");
+
+
+/////////////////
+// import memgraph individual ctd node and edge data files using json_util.load_from_path()
+/////////////////
+// only use this in disk storage mode NODE IMPORT MODE ACTIVE;
+CALL json_util.load_from_path("/var/log/memgraph/ctd-mg-nodes.json")
+//CALL json_util.load_from_path("/var/log/memgraph/rk-mg-nodes.json")
+YIELD objects
+UNWIND objects AS o
+CREATE (:Node {equivalent_identifiers:o.equivalent_identifiers, category:o.category, id:o.id, description:o.description, name:o.name, NCBITaxon:o.NCBITaxon, information_content:o.information_content});
+
+// only use this in disk storage mode EDGE IMPORT MODE ACTIVE;
+//CALL json_util.load_from_path("/var/log/memgraph/ctd-mg-edges.json.sav")
+//CALL json_util.load_from_path("/var/log/memgraph/rk-mg-edges.json")
+CALL json_util.load_from_path("/var/log/memgraph/ctd-mg-edges-10000.json")
+YIELD objects
+UNWIND objects AS o
+MATCH (a:Node {id: o.start}), (b:Node {id: o.end})
+CREATE (a)-[:Edge {start:o.start, label:o.label, end:o.end, type:o.type, id:o.id, properties:o.properties}]->(b);
+
+////////////////
+// loading CSV files
+////////////////
+
+drop graph;
+
+// create the index on the node
+create index on :Node(id);
+
+// load the ctd nodes
+profile using periodic commit 100
+load csv from "/var/log/memgraph/ctd-nodes.csv" with header delimiter ',' as row
+  with row
+  // skip 70000
+  //limit 100
+  create (n: Node
+    {
+  id: row.id,
+  name: row.name,
+  description: row.description,
+  NCBITaxon: row.NCBITaxon,
+  category: split(row.category, ';'),
+  equivalent_identifiers: split(row.equivalent_identifiers, ';')
+  })
+  with n
+    match (n: Node)
+    set n: n.category;
+
+load csv from "/var/log/memgraph/ctd-edges.csv" with header as row
+  // DEBUG: limit record count for testing
+  with row
+    // limit 1000
+    match (a: Node {id: row.subject}), (b: Node {id: row.object})
+    create (a)-
+      [e: row.predicate
+        {
+          agent_type: row.agent_type,
+          description: row.description,
+          knowledge_level: row.knowledge_level,
+          NCBITaxon: row.NCBITaxon,
+          object: row.object,
+          object_aspect_qualifier: row.object_aspect_qualifier,
+          object_direction_qualifier: row.object_direction_qualifier,
+          predicate: row.predicate,
+          primary_knowledge_source: row.primary_knowledge_source,
+          publications: split(row.publications, ';'),
+          qualified_predicate: row.qualified_predicate,
+          subject: row.subject
+        }
+      ]->(b);
+
+
+profile using periodic commit 100
+load csv from "/var/log/memgraph/rk-nodes.csv" with header delimiter ',' as row
+  with row
+  // skip 70000
+  limit 100
+  create (n: Node
+    {
+	id: row.id,
+	name: row.name,
+	category: split(row.category, ';'),
+	equivalent_identifiers: split(row.equivalent_identifiers, ';'),
+	hgvs: split(row.hgvs, ';'),
+	information_content: toFloat(row.information_content)
+
+	  }
+  )
+  with n
+    match (n: Node)
+    set n: n.category;
+
+// load the edges
+//using periodic commit 10000
+profile load csv from "/var/log/memgraph/rk-edges.csv" with header as row
+  // DEBUG: limit record count for testing
+  with row
+    limit 10000000
+    match (a: Node {id: row.subject}), (b: Node {id: row.object})
+    create (a)-
+      [e: row.predicate
+        {
+	subject: row.subject,
+	predicate: row.predicate,
+	object: row.object,
+	primary_knowledge_source: row.primary_knowledge_source,
+	knowledge_level: row.knowledge_level,
+	agent_type: row.agent_type,
+	snpeff_effect: row.snpeff_effect,
+	distance_to_feature: row.distance_to_feature,
+	publications: split(row.publications, ';'),
+	//p_value: WITH splint(row.p_value, ';') AS list UNWIND list AS value return toFloat(value),
+	ligand: row.ligand,
+	protein: row.protein,
+	affinity_parameter: row.affinity_parameter,
+	//supporting_affinities: WITH splint(row.supporting_affinities, ';') AS list UNWIND list AS value return toFloat(value),
+	affinity: toFloat(row.affinity),
+	object_aspect_qualifier: row.object_aspect_qualifier,
+	object_direction_qualifier: row.object_direction_qualifier,
+	qualified_predicate: row.qualified_predicate,
+	Coexpression: row.Coexpression,
+	Coexpression_transferred: row.Coexpression_transferred,
+	Experiments: row.Experiments,
+	Experiments_transferred: row.Experiments_transferred,
+	Database: row.Database,
+	Database_transferred: row.Database_transferred,
+	Textmining: row.Textmining,
+	Textmining_transferred: row.Textmining_transferred,
+	Cooccurance: row.Cooccurance,
+	Combined_score: row.Combined_score,
+	species_context_qualifier: row.species_context_qualifier,
+	hetio_source: split(row.hetio_source, ';'),
+	tmkp_confidence_score: toFloat(row.tmkp_confidence_score),
+	sentences: row.sentences,
+	tmkp_ids: split(row.tmkp_ids, ';'),
+	detection_method: row.detection_method,
+	Homology: row.Homology,
+	expressed_in: split(row.expressed_in, ';'),
+	//slope: WITH splint(row.slope, ';') AS list UNWIND list AS value return toFloat(value),
+	pubchem_assay_ids: split(row.pubchem_assay_ids, ';'),
+	patent_ids: split(row.patent_ids, ';'),
+	aggregator_knowledge_source: split(row.aggregator_knowledge_source, ';'),
+	id: row.id,
+	original_subject: row.original_subject,
+	category: split(row.category, ';'),
+	provided_by: split(row.provided_by, ';'),
+	disease_context_qualifier: row.disease_context_qualifier,
+	frequency_qualifier: row.frequency_qualifier,
+	has_evidence: split(row.has_evidence, ';'),
+	negated: row.negated,
+	original_object: row.original_object,
+	score: toFloat(row.score),
+	FAERS_llr: toFloat(row.FAERS_llr),
+	description: split(row.description, ';'),
+	NCBITaxon: row.NCBITaxon,
+	Fusion: row.Fusion,
+	has_count: row.has_count,
+	has_percentage: row.has_percentage,
+	has_quotient: row.has_quotient,
+	has_total: row.has_total,
+	qualifiers: split(row.qualifiers, ';'),
+	stage_qualifier: row.stage_qualifier,
+	primaryTarget: toBoolean(row.primaryTarget),
+	endogenous: toBoolean(row.endogenous),
+	anatomical_context_qualifier: row.anatomical_context_qualifier,
+	phosphorylation_sites: split(row.phosphorylation_sites, ';'),
+	onset_qualifier: row.onset_qualifier,
+	object_specialization_qualifier: row.object_specialization_qualifier,
+	drugmechdb_path_id: split(row.drugmechdb_path_id, ';'),
+	complex_context: split(row.complex_context, ';'),
+	sex_qualifier: row.sex_qualifier,
+	object_part_qualifier: row.object_part_qualifier,
+	subject_part_qualifier: row.subject_part_qualifier
+        }
+      ]->(b);
+
+explain match (a: Node {id: "UNII:7PK6VC94OU"}) return a;
+
+////////////////
+// general purpose testing queries
+////////////////
+match (a:`biolink:Disease` {id:"MONDO:0021085"})-[x]-(b:`biolink:NamedThing`) return type(x),x.primary_knowledge_source,count(b);
+
+match (a) where a.id='CHEBI:25806' return *;
+match (a) return * limit 10;
+match (a) where a.id="UNII:7PK6VC94OU" return a;
+match (a: Node)-[e]->(b: Node) return * limit 25;
+
+match (a) with a.name as name, count(a) as count
+where count > 1
+return name;
+
+match (a: Node), (b: Node)
+
+match (a: Node) return a.name, a.id order by a.name limit 1;
+
+match (a)-[e]->(b) return e limit 1;
+
+match (a)-[e]->(b) where a.id="MONDO:0021085" return a,e,b limit 50;
+match p = (a)-[e]-(c) WHERE a.id = 'UNII:7PK6VC94OU' RETURN p.a;
+match p = (a)-[e]-(c) WHERE a.id = 'UNII:7PK6VC94OU' RETURN relationships(p);
+match (a) return count(*);
+match ()-[e]->() return count(e);
+// this crashes the UI pod: match ()-[r]->() RETURN r, properties(r);
+
+/////////////////
+// danger zone
+/////////////////
+
+// remove some number of edges with nodes
+match (a)-[e]-() with a, e limit 1350000 detach delete a, e;
+
+// remove nodes with no relationships now that the edges are gone
+match (a) where node.degree_in(a) = 0 detach delete a;
