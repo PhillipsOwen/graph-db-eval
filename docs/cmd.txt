@@ -1,8 +1,0 @@
-using periodic commit 10000 load csv from "/var/log/memgraph/rk-nodes.csv" with header delimiter ',' as row create (n: Node   {
-      id: row.id,
-      name: row.name,
-      category: split(row.category, ';'),
-      equivalent_identifiers: split(row.equivalent_identifiers, ';'),
-      NCBITaxon: row.NCBITaxon,
-      information_content: toFloat(row.information_content),
-      description: row.description } ) with n match (n: Node) set n: n.category;
