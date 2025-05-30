@@ -1,0 +1,30 @@
+process to get files ready for processing
+
+starting files: 
+ - nodes.temp_csv, edges.temp_csv
+ - found in /projects/stars/Data_services/biolink3/graphs/RobokopKG/23f46efa87c2bad7
+ - reformatted using kgx-file-import to change delimiters ("\t" -> ",", "0x1F" ->";")
+   -  produces rk-nodes.csv, rk-edges.csv
+ - files now located at: /projects/omnicorp/graph-eval/common
+ 
+tab and comma delimited headers
+ - use nodes.temp_csv, edges.temp_csv to get column tab delimited headers with data types
+   - run in: /projects/omnicorp/graph-eval/common
+   - head -1 nodes.temp_csv >> ../rk-nodes.tab-hdr.temp_csv
+   - head -1 edges.temp_csv >> ../rk-edges.tab-hdr.temp_csv
+   
+ - important note: the nodes.temp_csv is missing the robokop_variant_id:string column which should 
+   be added manually to the file after the hgvs column.
+   
+ - use rk-nodes.csv and rk-edges.csv to get comma delimited headers for the csv files
+   - grab the top line in each: 
+     - head -1 rk-nodes.csv >> ../rk-nodes.hdr.csv
+     - head -1 rk-edges.csv >> ../rk-edges.hdr.csv
+   - move them local for more processing
+     
+ - use python code to clean up the columns   
+   - some columns contain characters that need to be replaced with an underscore(commas, colons, hyphens, etc)
+   - MemGraph output produces
+     - node/edge column headers for split file concatenation 
+       - ./common/rk-node-header-cols.csv and ./common/rk-edge-header-cols.csv
+     - cypher for LOAD CSV commands for nodes and edges that must be placed in the fastapi code.

@@ -1,0 +1,11 @@
+//match (a) return a.* limit 2;
+//match (a) return count(a);
+//match ()-[e]-() return count(e);
+//match (a:Node)--(b) return * limit 1;
+//match (a) detach delete a;
+
+// to create the DB
+python kuzu_build_graph_csv.py --node-infile=rk-nodes.tab-hdr.temp_csv --edge-infile=rk-edges.tab-hdr.temp_csv --data-dir=/omnicorp/graph-eval --outfile=rk-kuzu-db --type=tables
+
+// to parse the split CSV files
+python kuzu_build_graph_csv.py --node-infile=rk-nodes-pt --edge-infile=rk-edges-pt --data-dir=/omnicorp/graph-eval --outfile=rk-kuzu-db --type=data
