@@ -4,8 +4,37 @@
 //match (a:Node)--(b) return * limit 1;
 //match (a) detach delete a;
 
-// to create the DB
+to create the DB on a k8s pod
+-----------------------------------------
+use the fastapi pod
+cd to /omnicorp/graph-eval
+remove old DB (if exists)
+
 python kuzu_build_graph_csv.py --node-infile=rk-nodes.tab-hdr.temp_csv --edge-infile=rk-edges.tab-hdr.temp_csv --data-dir=/omnicorp/graph-eval --outfile=rk-kuzu-db --type=tables
 
 // to parse the split CSV files
 python kuzu_build_graph_csv.py --node-infile=rk-nodes-pt --edge-infile=rk-edges-pt --data-dir=/omnicorp/graph-eval --outfile=rk-kuzu-db --type=data
+
+creating the DB with the compute cluster
+-----------------------------------------
+sinteractive -m 16000 -p batch -t 24:00:00
+screen
+install python module: module add python/3.10.0
+activate python venv: source ./venv-3.10/bin/activate
+note: previous steps used conda to install the kuzu package
+  - install conda
+    conda create -n kuzu_build -c conda-forge \
+      python=3.10 \
+      cmake \
+      make \
+      pip \
+      gcc_linux-64=13 \
+      gxx_linux-64=13
+    conda activate kuzu_build
+    pip install kuzu
+
+go the the kuzu data directory: cd /projects/omnicorp/graph-eval/
+create the DB: python kuzu_build_graph_csv.py --node-infile=rk-nodes.tab-hdr.temp_csv --edge-infile=rk-edges.tab-hdr.temp_csv --data-dir=/projects/omnicorp/graph-eval --outfile=rk-kuzu-db --type=tables
+load the DB: python kuzu_build_graph_csv.py --node-infile=rk-nodes-pt --edge-infile=rk-edges-pt --data-dir=/projects/omnicorp/graph-eval --outfile=rk-kuzu-db --type=data
+ - check the loop range of what files to parse
+
