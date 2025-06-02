@@ -4,7 +4,7 @@ uvicorn==0.34.0
 pylint==3.3.6
 pytest==8.3.5
 requests==2.32.3
-kuzu==0.9.0
+kuzu==0.10.0
 codetiming==1.4.0
 polars==1.27.1
 faker==37.1.0
