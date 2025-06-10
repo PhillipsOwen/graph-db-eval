@@ -348,51 +348,6 @@ async def run_mg_data_load_query(file_prefix: str, file_counter_start: int, file
     return PlainTextResponse(content=ret_val, status_code=status_code, media_type="text/plain")
 
 
-@APP.get('/run_kuzu_data_load_query', status_code=200, response_model=None)
-async def run_kuzu_data_load_query(file_prefix: str, file_counter_start: int, file_counter_end: int) -> PlainTextResponse:
-    """
-    Executes commands to load a kuzu DB
-
-    :param file_prefix:
-    :param file_counter_start:
-    :param file_counter_end:
-    :return:
-    """
-    # init the returned HTML status code
-    status_code = 200
-
-    # init the intermediate and return values
-    ret_val: str = ""
-
-    # init a list for the queries
-    queries: list = []
-
-    # create a timer for query duration
-    t = Timer(name="results", text="Records inserted in {:.4f}s")
-
-    with t:
-        # this is a non-inclusive range so add 1 to the ending count
-        file_counter_end += 1
-
-        # get the number of threads needed
-        num_threads: int = file_counter_end - file_counter_start
-
-        for i in range(file_counter_start, file_counter_end):
-            queries.append(get_load_query(file_prefix, i))
-
-        # start a thread pool
-        with multiprocessing.Pool(num_threads) as pool:
-            # launch each query specified
-            pool.starmap(execute_csv_import_chunk, [(q,) for q in queries])
-
-    msg: str = file_prefix + " import elapsed time: " + str(round(t.last, 4)) + "s"
-
-    logger.info("MemGraph loading results: %s", msg)
-
-    # return to the caller
-    return PlainTextResponse(content=ret_val, status_code=status_code, media_type="text/plain")
-
-
 @APP.get('/run_mg_cypher_query', status_code=200, response_model=None)
 async def run_mg_cypher_query(query: str) -> PlainTextResponse:
     """
