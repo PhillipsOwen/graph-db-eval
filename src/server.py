@@ -42,24 +42,27 @@ async def lifespan(APP: FastAPI):
     :return:
     """
 
-    # get the path to the DB
-    db_path: str = os.getenv('KUZU_DB_PATH', 'D:/dvols/graph-eval/ctd_data/ctd-kuzu-db')  # os.path.dirname(__file__)
+    try:
+        # get the path to the DB
+        db_path: str = os.getenv('KUZU_DB_PATH', 'D:/dvols/graph-eval/ctd_data/ctd-kuzu-db')  # os.path.dirname(__file__)
 
-    logger.info(f'Now loading Kuzu DB: {db_path}')
+        logger.info(f'Now loading Kuzu DB: {db_path}')
 
-    # grab the db variable created above
-    global db
+        # grab the db variable created above
+        global db
 
-    # load the DB
-    db = kuzu.Database(str(db_path))
+        # load the DB
+        db = kuzu.Database(str(db_path))
 
-    logger.info("Kuzu DB loaded.")
+        logger.info("Kuzu DB loaded.")
 
-    # wait for shutdown
-    yield
-
-    # release resources
-    db = None
+        # wait for shutdown
+        yield
+    except Exception as e:
+        logger.exception('Error: failed to attach to the DB', e)
+    finally:
+        # release resources
+        db = None
 
 # declare the FastAPI details
 APP = FastAPI(title='Graph DB evaluation', version=app_version, lifespan=lifespan)  #
