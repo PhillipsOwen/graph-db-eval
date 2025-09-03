@@ -18,7 +18,8 @@ from fastapi.responses import PlainTextResponse
 from kuzu import Database
 from contextlib import asynccontextmanager
 from src.common.logger import LoggingUtil
-
+from falkordb import FalkorDB
+import redis
 
 # set the app version
 app_version = os.getenv('APP_VERSION', 'Experimental')
@@ -65,7 +66,7 @@ async def lifespan(APP: FastAPI):
         db = None
 
 # declare the FastAPI details
-APP = FastAPI(title='Graph DB evaluation', version=app_version, lifespan=lifespan)  #
+APP = FastAPI(title='Graph DB evaluation', version=app_version)  #, lifespan=lifespan
 
 # declare app access details
 APP.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -306,11 +307,13 @@ async def make_mg_indexes(drop_first: bool) -> PlainTextResponse:
     # return to the caller
     return PlainTextResponse(content=ret_val, status_code=status_code, media_type="text/plain")
 
+
 @APP.get('/run_mg_data_load_query', status_code=200, response_model=None)
-async def run_mg_data_load_query(file_prefix: str, file_counter_start: int, file_counter_end: int) -> PlainTextResponse:
+async def run_mg_data_load_query(data_dir: str, file_prefix: str, file_counter_start: int, file_counter_end: int) -> PlainTextResponse:
     """
     Executes a commands to load a MemGraph DB.
 
+    :param data_dir:
     :param file_prefix:
     :param file_counter_start:
     :param file_counter_end:
@@ -335,13 +338,14 @@ async def run_mg_data_load_query(file_prefix: str, file_counter_start: int, file
         # get the number of threads needed
         num_threads: int = file_counter_end - file_counter_start
 
+        # get the range of LOAD_CSV queries
         for i in range(file_counter_start, file_counter_end):
-            queries.append(get_load_query(file_prefix, i))
+            queries.append(get_load_query(data_dir, file_prefix, i))
 
         # start a thread pool
         with multiprocessing.Pool(num_threads) as pool:
             # launch each query specified
-            pool.starmap(execute_csv_import_chunk, [(q,) for q in queries])
+            pool.starmap(execute_csv_import_chunk_memgraph, [(q,) for q in queries])
 
     msg: str = file_prefix + " import elapsed time: " + str(round(t.last, 4)) + "s"
 
@@ -351,10 +355,16 @@ async def run_mg_data_load_query(file_prefix: str, file_counter_start: int, file
     return PlainTextResponse(content=ret_val, status_code=status_code, media_type="text/plain")
 
 
-@APP.get('/run_mg_cypher_query', status_code=200, response_model=None)
-async def run_mg_cypher_query(query: str) -> PlainTextResponse:
+@APP.get('/run_falkor_data_load_query', status_code=200, response_model=None)
+async def run_falkor_data_load_query(data_dir: str, file_prefix: str, file_counter_start: int, file_counter_end: int) -> PlainTextResponse:
     """
-    Executes a CYPHER command on a MemGraph DB and returns the result.
+    Executes a commands to load a MemGraph DB.
+
+    :param data_dir:
+    :param file_prefix:
+    :param file_counter_start:
+    :param file_counter_end:
+    :return:
     """
     # init the returned HTML status code
     status_code = 200
@@ -362,34 +372,37 @@ async def run_mg_cypher_query(query: str) -> PlainTextResponse:
     # init the intermediate and return values
     ret_val: str = ""
 
-    # start collecting data
-    try:
-        # get the host name:port and auth (none)
-        host_name = f"bolt://{os.getenv('MEMGRAPH_DB_HOST', 'localhost')}:{os.getenv('MEMGRAPH_DB_PORT', '7687')}"
-        auth = ("", "")
+    # init a list for the queries
+    queries: list = []
 
-        # Connect to Memgraph
-        with GraphDatabase.driver(host_name, auth=auth) as client:
-            # check the connection
-            client.verify_connectivity()
+    # create a timer for query duration
+    t = Timer(name="results", text="Records inserted in {:.4f}s")
 
-            # get the data
-            ret_val: str = await get_mg_data(client, query)
+    with t:
+        # this is a non-inclusive range so add 1 to the ending count
+        file_counter_end += 1
 
-    except Exception as e:
-        # return a failure message
-        ret_val: str = f'Exception: Request failure. {str(e)}'
+        # get the number of threads needed
+        num_threads: int = file_counter_end - file_counter_start
 
-        logger.exception('Exception: Request failure.', e)
+        # get the range of LOAD_CSV queries
+        for i in range(file_counter_start, file_counter_end):
+            queries.append(get_load_query(data_dir, file_prefix, i))
 
-        # set the status to a server error
-        status_code = 500
+        # start a thread pool
+        with multiprocessing.Pool(num_threads) as pool:
+            # launch each query specified
+            pool.starmap(execute_csv_import_chunk_falkor, [(q,) for q in queries])
+
+    msg: str = file_prefix + " import elapsed time: " + str(round(t.last, 4)) + "s"
+
+    logger.info("Falkor loading results: %s", msg)
 
     # return to the caller
     return PlainTextResponse(content=ret_val, status_code=status_code, media_type="text/plain")
 
 
-def execute_csv_import_chunk(query):
+def execute_csv_import_chunk_memgraph(query):
     """
     method that executes a query thread
 
@@ -404,9 +417,56 @@ def execute_csv_import_chunk(query):
         # connect to the DB
         driver = GraphDatabase.driver(host_name, auth=auth)
 
-        # launch the query
+        # get a session to the DB
         with driver.session() as session:
+            # execute the LOAD_CSV query
             session.run(query)
+
+    except Exception as e:
+        logger.exception("Failed to execute transaction")
+        raise e
+
+
+def execute_csv_import_chunk_falkor(query):
+    """
+    method that executes a query thread
+
+    :param query:
+    :return:
+    """
+    try:
+        # get a connection to the DB
+        redis_conn = redis.from_url('redis://192.168.50.142:6379')
+
+        # Attempt to connect to the server
+        try:
+            redis_conn.ping()
+        except redis.exceptions.ConnectionError as e:
+            print("Could not connect to FalkorDB server.")
+            raise e
+
+        # get the host name:port and auth (none)
+        client = FalkorDB.from_url('redis://192.168.50.142:6379')
+
+        # Attempt to verify that falkordb module is loaded
+        try:
+            module_list = [m[b"name"] for m in redis_conn.module_list()]
+            if b"graph" not in module_list:
+                logger.debug("falkordb module not loaded on connected server.")
+
+        except redis.exceptions.ResponseError:
+            # Ignore check if the connected server does not support the "MODULE LIST" command
+            pass
+
+        key_exists = redis_conn.exists('RK_DB')
+        if key_exists:
+            # logger.debug(query)
+
+            # get a client connection to the DB
+            graph = client.select_graph('RK_DB')
+
+            # execute the LOAD_CSV query
+            graph.query(query)
 
     except Exception as e:
         logger.exception("Failed to execute transaction")
@@ -445,29 +505,29 @@ async def get_mg_data(client, query: str) -> str:
     return msg
 
 
-def get_load_query(file_prefix, file_counter) -> str:
+def get_load_query(data_dir, file_prefix, file_counter) -> str:
     """
-    the attributes listed in the CYPHER below come from the graph-db-parsers/memgraph/mg_build_individual_json.py file
+    the attributes listed in the CYPHER below come from the graph-db-parsers/MemGraph/mg_build_graph_csv.py file
 
+    :param data_dir:
     :param file_prefix:
     :param file_counter:
     :return:
     """
 
     if file_counter == 0:
-        file_name = f'/var/log/memgraph/{file_prefix}.csv'
+        file_name = f'{data_dir}/{file_prefix}.csv'
     else:
-        file_name = f'/var/log/memgraph/{file_prefix}-pt' + str(file_counter) + '.csv'
+        file_name = f'{data_dir}/{file_prefix}-pt' + str(file_counter) + '.csv'
 
     logger.debug('creating query for file: %s', file_name)
 
     cypher = """"""
 
-    if file_prefix == 'rk-nodes':
+    if 'rk-nodes' in file_prefix:
         cypher = """
-        load csv from "$$$" with header delimiter ',' as row
-        with row
-        create (n: Node 
+        LOAD CSV WITH HEADERS FROM "$$$" AS row
+        CREATE (n: Node 
         {
             id: row.id,
             name: row.name,
@@ -2436,11 +2496,8 @@ def get_load_query(file_prefix, file_counter) -> str:
             NCBITaxon: row.NCBITaxon
         }
         )
-        with n
-        match (n: Node)
-        set n: n.category;
         """
-    elif file_prefix == 'rk-edges':
+    elif 'rk-edges' in file_prefix:
         cypher = """
         load csv from "$$$" with header as row
           with row
